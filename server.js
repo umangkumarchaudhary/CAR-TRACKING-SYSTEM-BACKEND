@@ -7,18 +7,28 @@ require("dotenv").config();
 const { router: userAuthRoutes } = require("./userAuth"); // ✅ Import userAuth.js routes
 const vehicleRoutes = require("./vehicleRoutes");  // ✅ Import vehicle routes
 
-
 const app = express();
 
 // ✅ Middleware
 app.use(express.json());
 app.use(cookieParser());
 
-// ✅ CORS Configuration
+// ✅ CORS Configuration (Allow Local & Netlify Frontend)
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://umang-car-tracking-system.netlify.app"
+];
+
 app.use(
   cors({
-    origin: "http://localhost:3000", // ✅ Frontend origin
-    credentials: true, // ✅ Allow cookies
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("❌ Not allowed by CORS"));
+      }
+    },
+    credentials: true, // ✅ Allow cookies & authentication headers
   })
 );
 
@@ -31,7 +41,6 @@ mongoose
 // ✅ Use Routes from userAuth.js & vehicleRoutes.js
 app.use("/api", userAuthRoutes); // 👈 User authentication routes
 app.use("/api", vehicleRoutes);  // 👈 Vehicle tracking routes
-
 
 // ✅ Start Server
 const PORT = process.env.PORT || 5000;
