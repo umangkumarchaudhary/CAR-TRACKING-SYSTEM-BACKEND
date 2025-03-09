@@ -16,7 +16,7 @@ app.use(cookieParser());
 // ✅ CORS Configuration (Allow Local & Netlify Frontend)
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://umang-car-tracking-system.netlify.app"
+  "https://ukc-car-tracking-system.netlify.app"
 ];
 
 app.use(
