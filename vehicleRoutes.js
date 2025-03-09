@@ -5,7 +5,7 @@ const router = express.Router();
 
 const MIN_TIME_GAP = 1000; // 1 second minimum time between entry and exit
 
-// ✅ Moved ROLE_TO_STAGE here
+// ✅ Role-to-Stage Mapping
 const ROLE_TO_STAGE = {
   "Security Guard": "Security Gate",
   "Inspection Technician": "Interactive Bay",
@@ -19,7 +19,6 @@ const ROLE_TO_STAGE = {
   "Security Guard (Exit)": "Exit Gate",
 };
 
-// ✅ Vehicle Check API (Handles Entry & Stage Updates)
 // ✅ Vehicle Check API (Handles Entry, Stage Updates, and Work Status)
 router.post("/vehicle-check", async (req, res) => {
   try {
@@ -41,20 +40,21 @@ router.post("/vehicle-check", async (req, res) => {
         vehicleNumber: formattedVehicleNumber,
         entryTime: new Date(),
         exitTime: null,
-        stages: [{
-          stageName,
-          role,
-          eventType,
-          timestamp: new Date(),
-        }],
+        stages: [
+          {
+            stageName,
+            role,
+            eventType,
+            timestamp: new Date(),
+          },
+        ],
         status: eventType === "Start" ? "Work in Progress" : "Pending",
-
+        jobCardStarted: stageName === "Job Card Creation and Customer Approval" && eventType === "Start", // 🔥 Track Job Card Creation
       });
 
       await vehicle.save();
       return res.status(201).json({ success: true, newVehicle: true, message: "New vehicle entry recorded.", vehicle });
     }
-
 
     // ✅ Case 2: Prevent Duplicate Entry at the Same Stage
     const lastStage = vehicle.stages[vehicle.stages.length - 1];
@@ -73,6 +73,11 @@ router.post("/vehicle-check", async (req, res) => {
     // ✅ Case 4: Handle "Start" and "Finish" Actions
     if (eventType === "Start") {
       vehicle.status = "Work in Progress";
+
+      // ✅ Track Job Card Creation
+      if (stageName === "Job Card Creation and Customer Approval") {
+        vehicle.jobCardStarted = true;
+      }
     } else if (eventType === "Finish") {
       vehicle.status = "Finished";
     }
@@ -91,6 +96,7 @@ router.post("/vehicle-check", async (req, res) => {
   }
 });
 
+// ✅ Fetch all vehicles
 router.get("/vehicles", async (req, res) => {
   try {
     const vehicles = await Vehicle.find();
@@ -101,17 +107,70 @@ router.get("/vehicles", async (req, res) => {
   }
 });
 
+// In vehicleRoute.js (Backend) SERVICE ADVISOR
+router.get("/vehicles/in-progress", async (req, res) => {
+  try {
+    const vehicles = await Vehicle.find({
+      "stages.stageName": "Job Card Creation + Customer Approval",
+    });
 
-// DELETE all vehicles
+    return res.json({ success: true, vehicles });
+  } catch (error) {
+    console.error("Error fetching vehicles in progress:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+router.get("/vehicles/bay-in-progress", async (req, res) => {
+  try {
+    const vehicles = await Vehicle.find({
+      "stages.stageName": "Bay Work Started",
+    });
+
+    return res.json({ success: true, vehicles });
+  } catch (error) {
+    console.error("Error fetching vehicles in Bay Work:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+router.get("/vehicles/final-inspection-in-progress", async (req, res) => {
+  try {
+    const vehicles = await Vehicle.find({
+      "stages.stageName": "Final Inspection Started",
+    });
+
+    return res.json({ success: true, vehicles });
+  } catch (error) {
+    console.error("Error fetching ongoing Final Inspection jobs:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+router.get("/vehicles/washing-in-progress", async (req, res) => {
+  try {
+    const vehicles = await Vehicle.find({
+      "stages.stageName": "Washing Started",
+    });
+    return res.json({ success: true, vehicles });
+  } catch (error) {
+    console.error("Error fetching ongoing washing:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+
+// ✅ DELETE all vehicles
 router.delete("/vehicles", async (req, res) => {
   try {
-    const result = await Vehicle.deleteMany({}); // Deletes all records
+    const result = await Vehicle.deleteMany({});
     res.status(200).json({ success: true, message: "All vehicles deleted.", deletedCount: result.deletedCount });
   } catch (error) {
     console.error("Error deleting vehicles:", error);
     res.status(500).json({ success: false, message: "Server error", error });
   }
 });
-
 
 module.exports = router;
